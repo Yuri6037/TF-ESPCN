@@ -172,7 +172,7 @@ def upscale(ARGS):
 
     SCALE = ARGS['SCALE']
 
-    pbPath = "./models/EDSR_x{}.pb".format(SCALE)
+    pbPath = "./export/EDSR_x{}.pb".format(SCALE)
     print("Loading PB...")
     graph = load_pb(pbPath)
     LR_tensor = graph.get_tensor_by_name("IteratorGetNext:0")
