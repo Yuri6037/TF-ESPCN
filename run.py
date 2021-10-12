@@ -158,6 +158,54 @@ def test(ARGS):
         cv2.imshow('Bicubic HR image', bicubic_image)
         cv2.waitKey(0)
 
+def upscale(ARGS):
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+    SCALE = ARGS['SCALE']
+
+    path = ARGS["TESTIMG"]
+    name = os.path.basename(path)
+
+    fullimg = cv2.imread(path, 3)
+    floatimg = fullimg.astype(np.float32) / 255.0
+
+    # Convert to YCbCr color space
+    imgYCbCr = cv2.cvtColor(floatimg, cv2.COLOR_BGR2YCrCb)
+    imgY = imgYCbCr[:, :, 0]
+
+    LR_input_ = imgY.reshape(1, imgY.shape[0], imgY.shape[1], 1)
+
+    with tf.Session(config=config) as sess:
+        print("\nStart running tests on the model\n")
+        # #load the model with tf.data generator
+        ckpt_name = ARGS["CKPT"] + ".meta"
+        saver = tf.train.import_meta_graph(ckpt_name)
+        saver.restore(sess, tf.train.latest_checkpoint(ARGS["CKPT_dir"]))
+        graph_def = sess.graph
+        LR_tensor = graph_def.get_tensor_by_name("IteratorGetNext:0")
+        HR_tensor = graph_def.get_tensor_by_name("NHWC_output:0")
+
+        output = sess.run(HR_tensor, feed_dict={LR_tensor: LR_input_})
+
+        Y = output[0]
+        Cr = np.expand_dims(cv2.resize(imgYCbCr[:, :, 1], None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_CUBIC),
+                            axis=2)
+        Cb = np.expand_dims(cv2.resize(imgYCbCr[:, :, 2], None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_CUBIC),
+                            axis=2)
+
+        HR_image_YCrCb = np.concatenate((Y, Cr, Cb), axis=2)
+        HR_image = ((cv2.cvtColor(HR_image_YCrCb, cv2.COLOR_YCrCb2BGR)) * 255.0).clip(min=0, max=255)
+        HR_image = (HR_image).astype(np.uint8)
+
+        bicubic_image = cv2.resize(fullimg, None, fx=SCALE, fy=SCALE, interpolation=cv2.INTER_CUBIC)
+
+        cv2.imwrite("./result/bicubic/" + name, bicubic_image)
+        cv2.imwrite("./result/espcn/" + name, HR_image)
+
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
 def export(ARGS):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True

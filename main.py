@@ -1,11 +1,29 @@
 import run
 import argparse
 import os
+import sys
+
+#Inject our custom file logger
+class Logger(object):
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open("logfile.log", "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
+
+sys.stdout = Logger()
+#End
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', help='Start training the model.', action="store_true")
     parser.add_argument('--test', help='Run tests on the model', action="store_true")
+    parser.add_argument('--upscale', help='Upscale a single image using saved model', action="store_true")
     parser.add_argument('--export', help='Export model to .pb and .pbtxt format', action="store_true")
     parser.add_argument('--traindir', help='Training images directory', default="./Test")
     parser.add_argument('--testimg', help='Test image', default="./Test/t1.png")
@@ -34,3 +52,7 @@ if __name__ == "__main__":
         run.test(ARGS)
     elif args.export:
         run.export(ARGS)
+    elif args.upscale:
+        run.upscale(ARGS)
+
+    print("I ran successfully!")
