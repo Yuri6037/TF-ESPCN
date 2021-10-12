@@ -158,11 +158,26 @@ def test(ARGS):
         cv2.imshow('Bicubic HR image', bicubic_image)
         cv2.waitKey(0)
 
+def load_pb(path_to_pb):
+    with tf.gfile.GFile(path_to_pb, "rb") as f:
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(f.read())
+    with tf.Graph().as_default() as graph:
+        tf.import_graph_def(graph_def, name='')
+        return graph
+
 def upscale(ARGS):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
 
     SCALE = ARGS['SCALE']
+
+    pbPath = "./models/EDSR_x{}.pb".format(SCALE)
+    print("Loading PB...")
+    graph = load_pb(pbPath)
+    LR_tensor = graph.get_tensor_by_name("IteratorGetNext:0")
+    HR_tensor = graph.get_tensor_by_name("NHWC_output:0")
+    print("Done!")
 
     path = ARGS["TESTIMG"]
     name = os.path.basename(path)
@@ -176,16 +191,9 @@ def upscale(ARGS):
 
     LR_input_ = imgY.reshape(1, imgY.shape[0], imgY.shape[1], 1)
 
-    with tf.Session(config=config) as sess:
-        print("\nStart running tests on the model\n")
+    with tf.Session(graph=graph) as sess:
+        print("Upscaling single image...")
         # #load the model with tf.data generator
-        ckpt_name = ARGS["CKPT"] + ".meta"
-        saver = tf.train.import_meta_graph(ckpt_name)
-        saver.restore(sess, tf.train.latest_checkpoint(ARGS["CKPT_dir"]))
-        graph_def = sess.graph
-        LR_tensor = graph_def.get_tensor_by_name("IteratorGetNext:0")
-        HR_tensor = graph_def.get_tensor_by_name("NHWC_output:0")
-
         output = sess.run(HR_tensor, feed_dict={LR_tensor: LR_input_})
 
         Y = output[0]
